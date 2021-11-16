@@ -55,9 +55,10 @@ entity main is
 		min_unid : OUT STD_LOGIC_VECTOR(6 downto 0);
 		min_dez : OUT STD_LOGIC_VECTOR(6 downto 0);
 		hora_unid : OUT STD_LOGIC_VECTOR(6 downto 0);
-		hora_dez : OUT STD_LOGIC_VECTOR(6 downto 0); 
+		hora_dez : OUT STD_LOGIC_VECTOR(6 downto 0);
+		am_pm : OUT STD_LOGIC;
 		
-		clk1 : IN STD_LOGIC
+		Clk_100Mhz : IN STD_LOGIC;
 	);
 end main;
 
@@ -69,7 +70,7 @@ architecture Behavioral of main is
     signal relogio_sec_dezena : integer range 0 to 5;
     signal relogio_sec_unidade : integer range 0 to 9;
 
-	signal chrono_started : integer := 0;
+	
 	
 	signal chrono_hora_dezena : integer range 0 to 2;
     signal chrono_hora_unidade : integer range 0 to 9;
@@ -81,6 +82,7 @@ architecture Behavioral of main is
 	signal ampm : integer range 0 to 1;
 
 	signal clk : std_logic :='0';
+	signal chrono_running : std_logic :='0';
 
 	signal su :   STD_LOGIC_VECTOR(3 DOWNTO 0);
 	signal sd :   STD_LOGIC_VECTOR(2 DOWNTO 0);
@@ -91,12 +93,12 @@ architecture Behavioral of main is
 
 	begin
 
-      --clk generation.For 50 MHz clock this generates 1 Hz clock.
-        process(clk1)
+      	--conversor de relogio. 100Mhz gera 1Hz
+        process(Clk_100Mhz)
             begin
-                if(clk1'event and clk1='1') then
+                if(Clk_100Mhz'event and Clk_100Mhz='1') then
                     count <= count+1;
-                    if(count = 25000000) then
+                    if(count = 100000000) then
                         clk <= not clk;
                         count <=1;
                     end if;
@@ -107,7 +109,7 @@ architecture Behavioral of main is
 		process(chrono_start)
 			begin
 				if(chrono_start = '1' and chrono_stop = '0') then
-					chrono_started <= 1;
+					chrono_running <= '1';
 				end if;
 		end process;
 
@@ -115,7 +117,7 @@ architecture Behavioral of main is
 		process(chrono_stop)
 			begin
 				if(chrono_stop = '1') then
-					chrono_started <= 0;
+					chrono_running <= '0';
 				end if;
 		end process;
 
@@ -133,8 +135,7 @@ architecture Behavioral of main is
 		end process;
 						
 		
-		clk_proc : process(clk, mode, switch1)
-			variable ledcount : integer := 1;
+		clk_proc : process(clk, chrono_started, config)
 			begin
 				if (clk'event and clk ='1') then
 					-- relogio funcional somente fora de configuracao
@@ -176,7 +177,7 @@ architecture Behavioral of main is
 						end if;
 					end if;
 
-					if chrono_started = 1 then
+					if chrono_running = '1' then
 						if chrono_sec_unidade = 9 then
 							chrono_sec_unidade <= 0;
 							if chrono_sec_dezena = 5 then
@@ -210,104 +211,115 @@ architecture Behavioral of main is
 					end if;
 				
 				end if;
-
-
-
-				hd <= std_logic_vector(to_unsigned(h_ms_int, hms'length));
-				hu <= std_logic_vector(to_unsigned(h_ls_int, hls'length));
-				md <= std_logic_vector(to_unsigned(m_ms_int, mms'length));
-				mu <= std_logic_vector(to_unsigned(m_ls_int, mls'length));
-				sd <= std_logic_vector(to_unsigned(s_ms_int, sms'length));
-				su <= std_logic_vector(to_unsigned(s_ls_int, sls'length));
 	
 		end process clk_proc;
+
+		-- Selecionador do que mostrar no visor
+		process(mode)
+			begin
+				if mode = '0' then -- relogio
+					hd <= std_logic_vector(to_unsigned(relogio_hora_dezena, hd'length));
+					hu <= std_logic_vector(to_unsigned(relogio_hora_unidade, hu'length));
+					md <= std_logic_vector(to_unsigned(relogio_min_dezena, md'length));
+					mu <= std_logic_vector(to_unsigned(relogio_min_unidade, mu'length));
+					sd <= std_logic_vector(to_unsigned(relogio_sec_dezena, sd'length));
+					su <= std_logic_vector(to_unsigned(relogio_sec_unidade, su'length));
+				else -- chronometro
+					hd <= std_logic_vector(to_unsigned(chrono_hora_dezena, hd'length));
+					hu <= std_logic_vector(to_unsigned(chrono_hora_unidade, hu'length));
+					md <= std_logic_vector(to_unsigned(chrono_min_dezena, md'length));
+					mu <= std_logic_vector(to_unsigned(chrono_min_unidade, mu'length));
+					sd <= std_logic_vector(to_unsigned(chrono_sec_dezena, sd'length));
+					su <= std_logic_vector(to_unsigned(chrono_sec_unidade, su'length));
+				end if;
+		end process;
 		
 				
-	--- For the MS  of the Second
-	--start: count_mod5 port map(sms1=> sms, seg21=> seg2);
-	PROCESS (sd)
-		BEGIN
-			CASE sd IS 
-				WHEN "000" => seg_dez <= "1000000";
-				WHEN "001" => seg_dez <= "1111001";
-				WHEN "010" => seg_dez <= "0100100";
-				WHEN "011" => seg_dez <= "0110000";
-				WHEN "100" => seg_dez <= "0011001";
-				WHEN "101" => seg_dez <= "0010010";
-				WHEN OTHERS => seg_dez <= "1000000";
+		--- For the MS  of the Second
+		--start: count_mod5 port map(sms1=> sms, seg21=> seg2);
+		PROCESS (sd)
+			BEGIN
+				CASE sd IS 
+					WHEN "000" => seg_dez <= "1000000";
+					WHEN "001" => seg_dez <= "1111001";
+					WHEN "010" => seg_dez <= "0100100";
+					WHEN "011" => seg_dez <= "0110000";
+					WHEN "100" => seg_dez <= "0011001";
+					WHEN "101" => seg_dez <= "0010010";
+					WHEN OTHERS => seg_dez <= "1000000";
+				END CASE;
+		END PROCESS;
+		-- For the LS of the second
+		PROCESS (su)
+			BEGIN
+				CASE su IS 
+					WHEN "0000" => seg_unid  <= "1000000";
+					WHEN "0001" => seg_unid <= "1111001";
+					WHEN "0010" => seg_unid <= "0100100";
+					WHEN "0011" => seg_unid <= "0110000";
+					WHEN "0100" => seg_unid <= "0011001";
+					WHEN "0101" => seg_unid <= "0010010";
+					WHEN "0110" => seg_unid <= "0000010";
+					WHEN "0111" => seg_unid <= "1011000";
+					WHEN "1000" => seg_unid <= "0000000";
+					WHEN "1001" => seg_unid <= "0011000";
+					WHEN OTHERS => seg_unid <= "1000000";
+				END CASE;
+		END PROCESS;	
+		
+		--- For the MS of the Second
+		PROCESS (md)
+			BEGIN
+				CASE md IS 
+					WHEN "000" => min_dez <= "1000000";
+					WHEN "001" => min_dez <= "1111001";
+					WHEN "010" => min_dez <= "0100100";
+					WHEN "011" => min_dez <= "0110000";
+					WHEN "100" => min_dez <= "0011001";
+					WHEN "101" => min_dez <= "0010010";
+					WHEN OTHERS => min_dez <= "1000000";
+				END CASE;
+		END PROCESS;
+		
+		-- For the LS of the second
+		PROCESS (mu)
+			BEGIN
+			CASE mu IS 
+				WHEN "0000" => min_unid <= "1000000";
+				WHEN "0001" => min_unid <= "1111001";
+				WHEN "0010" => min_unid <= "0100100";
+				WHEN "0011" => min_unid <= "0110000";
+				WHEN "0100" => min_unid <= "0011001";
+				WHEN "0101" => min_unid <= "0010010";
+				WHEN "0110" => min_unid <= "0000010";
+				WHEN "0111" => min_unid <= "1011000";
+				WHEN "1000" => min_unid <= "0000000";
+				WHEN "1001" => min_unid <= "0011000";
+				WHEN OTHERS => min_unid <= "1000000";		
 			END CASE;
-	END PROCESS;
-	-- For the LS of the second
-	PROCESS (su)
-		BEGIN
-			CASE su IS 
-				 WHEN "0000" => seg_unid  <= "1000000";
-				 WHEN "0001" => seg_unid <= "1111001";
-				 WHEN "0010" => seg_unid <= "0100100";
-				 WHEN "0011" => seg_unid <= "0110000";
-				 WHEN "0100" => seg_unid <= "0011001";
-				 WHEN "0101" => seg_unid <= "0010010";
-				 WHEN "0110" => seg_unid <= "0000010";
-				 WHEN "0111" => seg_unid <= "1011000";
-				 WHEN "1000" => seg_unid <= "0000000";
-				 WHEN "1001" => seg_unid <= "0011000";
-				 WHEN OTHERS => seg_unid <= "1000000";
-			END CASE;
-	END PROCESS;	
-	
-	--- For the MS of the Second
-	PROCESS (md)
-		BEGIN
-			CASE md IS 
-				WHEN "000" => min_dez <= "1000000";
-				WHEN "001" => min_dez <= "1111001";
-				WHEN "010" => min_dez <= "0100100";
-				WHEN "011" => min_dez <= "0110000";
-				WHEN "100" => min_dez <= "0011001";
-				WHEN "101" => min_dez <= "0010010";
-				WHEN OTHERS => min_dez <= "1000000";
-			END CASE;
-	END PROCESS;
-	
-	-- For the LS of the second
-	PROCESS (mu)
-		BEGIN
-		CASE mu IS 
-			 WHEN "0000" => min_unid <= "1000000";
-			 WHEN "0001" => min_unid <= "1111001";
-			 WHEN "0010" => min_unid <= "0100100";
-			 WHEN "0011" => min_unid <= "0110000";
-			 WHEN "0100" => min_unid <= "0011001";
-			 WHEN "0101" => min_unid <= "0010010";
-			 WHEN "0110" => min_unid <= "0000010";
-			 WHEN "0111" => min_unid <= "1011000";
-			 WHEN "1000" => min_unid <= "0000000";
-			 WHEN "1001" => min_unid <= "0011000";
-			 WHEN OTHERS => min_unid <= "1000000";		
-		 END CASE;
-	END PROCESS;	
-	
-	--For the MS of the hour hand
-	PROCESS(hd)
-		BEGIN
-			CASE hd IS 
-				WHEN "00" => hora_dez <= "1000000";
-				WHEN "01" => hora_dez <= "1111001";
-				WHEN "10" => hora_dez <= "0100100";
-				WHEN OTHERS => hora_dez <= "1000000";
-			END CASE;
-	END PROCESS;
-	
-	-- For the LS of the hour hand
-	PROCESS(hu)
-		BEGIN
-			CASE hu IS
-				WHEN "00" => hora_unid <= "1000000";
-				WHEN "01" => hora_unid <= "1111001";
-				WHEN "10" => hora_unid <= "0100100";
-				WHEN "11" => hora_unid <= "0110000";
-				WHEN OTHERS => hora_unid <= "1000000";
-			END CASE;
-	END PROCESS;
+		END PROCESS;	
+		
+		--For the MS of the hour hand
+		PROCESS(hd)
+			BEGIN
+				CASE hd IS 
+					WHEN "00" => hora_dez <= "1000000";
+					WHEN "01" => hora_dez <= "1111001";
+					WHEN "10" => hora_dez <= "0100100";
+					WHEN OTHERS => hora_dez <= "1000000";
+				END CASE;
+		END PROCESS;
+		
+		-- For the LS of the hour hand
+		PROCESS(hu)
+			BEGIN
+				CASE hu IS
+					WHEN "00" => hora_unid <= "1000000";
+					WHEN "01" => hora_unid <= "1111001";
+					WHEN "10" => hora_unid <= "0100100";
+					WHEN "11" => hora_unid <= "0110000";
+					WHEN OTHERS => hora_unid <= "1000000";
+				END CASE;
+		END PROCESS;
 
 end Behavioral;
