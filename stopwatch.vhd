@@ -44,7 +44,7 @@ entity main is
 
 		mode : in STD_LOGIC;
 		config : in STD_LOGIC_VECTOR(1 DOWNTO 0);
-		chv0 : in STD_LOGIC;
+		chv0 : in STD_LOGIC; -- por enquanto nao faz nada
 		
 		chrono_start : in STD_LOGIC;
 		chrono_stop : in STD_LOGIC;
@@ -70,8 +70,6 @@ architecture Behavioral of main is
     signal relogio_sec_dezena : integer range 0 to 5;
     signal relogio_sec_unidade : integer range 0 to 9;
 
-	
-	
 	signal chrono_hora_dezena : integer range 0 to 2;
     signal chrono_hora_unidade : integer range 0 to 9;
     signal chrono_min_dezena : integer range 0 to 5;
@@ -82,18 +80,22 @@ architecture Behavioral of main is
 	signal ampm : integer range 0 to 1;
 
 	signal clk : std_logic :='0';
+	signal count : integer :=1;
+	signal clk_pisca : std_logic :='0'
+	signal count_pisca : integer :=1;
+
 	signal chrono_running : std_logic :='0';
 
 	signal su :   STD_LOGIC_VECTOR(3 DOWNTO 0);
 	signal sd :   STD_LOGIC_VECTOR(2 DOWNTO 0);
 	signal mu :   STD_LOGIC_VECTOR(3 DOWNTO 0);
 	signal md :   STD_LOGIC_VECTOR(2 DOWNTO 0);
-	signal hu :   STD_LOGIC_VECTOR(1 DOWNTO 0);
+	signal hu :   STD_LOGIC_VECTOR(3 DOWNTO 0);
 	signal hd :   STD_LOGIC_VECTOR(1 DOWNTO 0);
 
 	begin
 
-      	--conversor de relogio. 100Mhz gera 1Hz
+      	--conversor de relogio. 100Mhz gera 1Hz (1 segundo) para contagem
         process(Clk_100Mhz)
             begin
                 if(Clk_100Mhz'event and Clk_100Mhz='1') then
@@ -101,6 +103,18 @@ architecture Behavioral of main is
                     if(count = 100000000) then
                         clk <= not clk;
                         count <=1;
+                    end if;
+                end if;
+        end process;
+
+		--conversor de relogio. 100Mhz gera 5Hz (1/5 segundo) para o pisca
+        process(Clk_100Mhz)
+            begin
+                if(Clk_100Mhz'event and Clk_100Mhz='1') then
+                    count_pisca <= count_pisca+1;
+                    if(count = 20000000) then
+                        clk_pisca <= not clk_pisca;
+                        count_pisca <=1;
                     end if;
                 end if;
         end process;
@@ -139,43 +153,43 @@ architecture Behavioral of main is
 			begin
 				if (clk'event and clk ='1') then
 					-- relogio funcional somente fora de configuracao
-					if config = '0' then 
-						if relogio_sec_unidade = 9 then
-							relogio_sec_unidade <= 0;
-							if relogio_sec_dezena = 5 then
-								relogio_sec_dezena <= 0;
-								if relogio_min_unidade = 9 then
-									relogio_min_unidade <= 0;
-									if relogio_min_dezena = 5 then
-										relogio_min_dezena <= 0;
-										if relogio_hora_unidade = 9 or (relogio_hora_dezena = 1 and relogio_hora_unidade = 2) then
-											if relogio_hora_unidade = 9 then
-												relogio_hora_dezena <= 1;
-											else
-												relogio_hora_dezena <= 0;
-												if ampm = 0 then
-													ampm <= 1;
-												else 
-													ampm <= 0;
-												end if;
-											end if;
-											relogio_hora_unidade <= 0;
+					--if config = '0' then 
+					if relogio_sec_unidade = 9 then
+						relogio_sec_unidade <= 0;
+						if relogio_sec_dezena = 5 then
+							relogio_sec_dezena <= 0;
+							if relogio_min_unidade = 9 then
+								relogio_min_unidade <= 0;
+								if relogio_min_dezena = 5 then
+									relogio_min_dezena <= 0;
+									if relogio_hora_unidade = 9 or (relogio_hora_dezena = 1 and relogio_hora_unidade = 2) then
+										if relogio_hora_unidade = 9 then
+											relogio_hora_dezena <= 1;
 										else
-											relogio_hora_unidade <= relogio_hora_unidade + 1;
+											relogio_hora_dezena <= 0;
+											if ampm = 0 then
+												ampm <= 1;
+											else 
+												ampm <= 0;
+											end if;
 										end if;
+										relogio_hora_unidade <= 0;
 									else
-										relogio_min_dezena <= relogio_min_dezena + 1;
+										relogio_hora_unidade <= relogio_hora_unidade + 1;
 									end if;
 								else
-									relogio_min_unidade = relogio_min_unidade + 1;
+									relogio_min_dezena <= relogio_min_dezena + 1;
 								end if;
 							else
-								relogio_sec_dezena <= relogio_sec_dezena + 1;
+								relogio_min_unidade = relogio_min_unidade + 1;
 							end if;
 						else
-							relogio_sec_unidade <= relogio_sec_unidade + 1;
+							relogio_sec_dezena <= relogio_sec_dezena + 1;
 						end if;
+					else
+						relogio_sec_unidade <= relogio_sec_unidade + 1;
 					end if;
+					--end if;
 
 					if chrono_running = '1' then
 						if chrono_sec_unidade = 9 then
@@ -234,10 +248,8 @@ architecture Behavioral of main is
 				end if;
 		end process;
 		
-				
-		--- For the MS  of the Second
-		--start: count_mod5 port map(sms1=> sms, seg21=> seg2);
-		PROCESS (sd)
+
+		PROCESS (sd, count_pisca, config)
 			BEGIN
 				CASE sd IS 
 					WHEN "000" => seg_dez <= "1000000";
@@ -249,8 +261,8 @@ architecture Behavioral of main is
 					WHEN OTHERS => seg_dez <= "1000000";
 				END CASE;
 		END PROCESS;
-		-- For the LS of the second
-		PROCESS (su)
+
+		PROCESS (su, count_pisca, config)
 			BEGIN
 				CASE su IS 
 					WHEN "0000" => seg_unid  <= "1000000";
@@ -266,9 +278,8 @@ architecture Behavioral of main is
 					WHEN OTHERS => seg_unid <= "1000000";
 				END CASE;
 		END PROCESS;	
-		
-		--- For the MS of the Second
-		PROCESS (md)
+
+		PROCESS (md, count_pisca, config, mode)
 			BEGIN
 				CASE md IS 
 					WHEN "000" => min_dez <= "1000000";
@@ -280,9 +291,8 @@ architecture Behavioral of main is
 					WHEN OTHERS => min_dez <= "1000000";
 				END CASE;
 		END PROCESS;
-		
-		-- For the LS of the second
-		PROCESS (mu)
+
+		PROCESS (mu, count_pisca, config, mode)
 			BEGIN
 			CASE mu IS 
 				WHEN "0000" => min_unid <= "1000000";
@@ -298,9 +308,8 @@ architecture Behavioral of main is
 				WHEN OTHERS => min_unid <= "1000000";		
 			END CASE;
 		END PROCESS;	
-		
-		--For the MS of the hour hand
-		PROCESS(hd)
+
+		PROCESS(hd, count_pisca, config, mode)
 			BEGIN
 				CASE hd IS 
 					WHEN "00" => hora_dez <= "1000000";
@@ -311,15 +320,22 @@ architecture Behavioral of main is
 		END PROCESS;
 		
 		-- For the LS of the hour hand
-		PROCESS(hu)
+		PROCESS (hu, count_pisca, config, mode)
 			BEGIN
-				CASE hu IS
-					WHEN "00" => hora_unid <= "1000000";
-					WHEN "01" => hora_unid <= "1111001";
-					WHEN "10" => hora_unid <= "0100100";
-					WHEN "11" => hora_unid <= "0110000";
-					WHEN OTHERS => hora_unid <= "1000000";
-				END CASE;
+				if mode =tem
+				case hu is 
+					when "0000" => hora_unid <= "1000000";
+					when "0001" => hora_unid <= "1111001";
+					when "0010" => hora_unid <= "0100100";
+					when "0011" => hora_unid <= "0110000";
+					when "0100" => hora_unid <= "0011001";
+					when "0101" => hora_unid <= "0010010";
+					when "0110" => hora_unid <= "0000010";
+					when "0111" => hora_unid <= "1011000";
+					when "1000" => hora_unid <= "0000000";
+					when "1001" => hora_unid <= "0011000";
+					when others => hora_unid <= "1000000";		
+				end case;
 		END PROCESS;
 
 end Behavioral;
