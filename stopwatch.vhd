@@ -112,7 +112,7 @@ architecture Behavioral of main is
             begin
                 if(Clk_100Mhz'event and Clk_100Mhz='1') then
                     count_pisca <= count_pisca+1;
-                    if(count = 10000000) then
+                    if(count_pisca = 10000000) then
                         clk_pisca <= not clk_pisca;
                         count_pisca <=1;
                     end if;
@@ -149,24 +149,51 @@ architecture Behavioral of main is
 		end process;
 						
 		
-		clk_proc : process(clk, chrono_running, config)
+		clk_proc : process(clk, chrono_running, config, mode, chrono_start, chrono_reset)
 			begin
 				if (clk'event and clk ='1') then
-					-- relogio funcional somente fora de configuracao
-					--if config = '0' then 
-					if relogio_sec_unidade = 9 then
-						relogio_sec_unidade <= 0;
-						if relogio_sec_dezena = 5 then
-							relogio_sec_dezena <= 0;
-							if relogio_min_unidade = 9 then
+					-- CONFIGURACAO DO RELOGIO
+					if mode = '0' then
+						if config = "01" then
+							if chrono_start'event and chrono_start ='1' then
+								relogio_sec_unidade <= relogio_sec_unidade + 1;
+							end if;
+							if chrono_reset'event and chrono_reset ='1' then
+								relogio_sec_dezena <= 0;
+								relogio_sec_unidade <= 0;
+							end if;
+						elsif config = "10" then
+							if chrono_start'event and chrono_start ='1' then
+								relogio_min_unidade <= relogio_min_unidade + 1;
+							end if;
+							if chrono_reset'event and chrono_reset ='1' then
+								relogio_min_dezena <= 0;
 								relogio_min_unidade <= 0;
+							end if;
+						elsif config = "11" then
+							if chrono_start'event and chrono_start ='1' then
+								relogio_hora_unidade <= relogio_hora_unidade + 1;
+							end if;
+							if chrono_reset'event and chrono_reset ='1' then
+								relogio_hora_dezena <= 0;
+								relogio_hora_unidade <= 0;
+							end if;
+						end if;
+					end if;
+					-- RELOGIO
+					if relogio_sec_unidade = 9 then
+						relogio_sec_unidade <= relogio_sec_unidade - 9;
+						if relogio_sec_dezena = 5 then
+							relogio_sec_dezena <= relogio_sec_dezena - 5;
+							if relogio_min_unidade = 9 then
+								relogio_min_unidade <= relogio_min_unidade - 9;
 								if relogio_min_dezena = 5 then
-									relogio_min_dezena <= 0;
+									relogio_min_dezena <= relogio_min_dezena - 5;
 									if relogio_hora_unidade = 9 or (relogio_hora_dezena = 1 and relogio_hora_unidade = 2) then
 										if relogio_hora_unidade = 9 then
 											relogio_hora_dezena <= 1;
 										else
-											relogio_hora_dezena <= 0;
+											relogio_hora_dezena <= relogio_hora_dezena - 1;
 											if ampm = 0 then
 												ampm <= 1;
 											else 
@@ -189,8 +216,8 @@ architecture Behavioral of main is
 					else
 						relogio_sec_unidade <= relogio_sec_unidade + 1;
 					end if;
-					--end if;
-
+					
+					-- CRONOMETRO
 					if chrono_running = '1' then
 						if chrono_sec_unidade = 9 then
 							chrono_sec_unidade <= 0;
@@ -249,92 +276,116 @@ architecture Behavioral of main is
 		end process;
 		
 
-		PROCESS (sd, count_pisca, config)
+		PROCESS (sd, clk_pisca, config)
 			BEGIN
-				CASE sd IS 
-					WHEN "000" => seg_dez <= "1000000";
-					WHEN "001" => seg_dez <= "1111001";
-					WHEN "010" => seg_dez <= "0100100";
-					WHEN "011" => seg_dez <= "0110000";
-					WHEN "100" => seg_dez <= "0011001";
-					WHEN "101" => seg_dez <= "0010010";
-					WHEN OTHERS => seg_dez <= "1000000";
-				END CASE;
+				if config = "01" and (clk_pisca'event and clk_pisca ='1') then
+					seg_unid <= "0000000";
+				else
+					CASE sd IS 
+						WHEN "000" => seg_dez <= "1111110";
+						WHEN "001" => seg_dez <= "0110000";
+						WHEN "010" => seg_dez <= "1101101";
+						WHEN "011" => seg_dez <= "1111001";
+						WHEN "100" => seg_dez <= "0110011";
+						WHEN "101" => seg_dez <= "1011011";
+						WHEN OTHERS => seg_dez <= "0000001";
+					END CASE;
+				end if;
 		END PROCESS;
 
-		PROCESS (su, count_pisca, config)
+		PROCESS (su, clk_pisca, config)
 			BEGIN
-				CASE su IS 
-					WHEN "0000" => seg_unid  <= "1000000";
-					WHEN "0001" => seg_unid <= "1111001";
-					WHEN "0010" => seg_unid <= "0100100";
-					WHEN "0011" => seg_unid <= "0110000";
-					WHEN "0100" => seg_unid <= "0011001";
-					WHEN "0101" => seg_unid <= "0010010";
-					WHEN "0110" => seg_unid <= "0000010";
-					WHEN "0111" => seg_unid <= "1011000";
-					WHEN "1000" => seg_unid <= "0000000";
-					WHEN "1001" => seg_unid <= "0011000";
-					WHEN OTHERS => seg_unid <= "1000000";
-				END CASE;
+				if config = "01" and (clk_pisca'event and clk_pisca ='1') then
+					seg_unid <= "0000000";
+				else
+					CASE su IS 
+						WHEN "0000" => seg_unid <= "1111110";
+						WHEN "0001" => seg_unid <= "0110000";
+						WHEN "0010" => seg_unid <= "1101101";
+						WHEN "0011" => seg_unid <= "1111001";
+						WHEN "0100" => seg_unid <= "0110011";
+						WHEN "0101" => seg_unid <= "1011011";
+						WHEN "0110" => seg_unid <= "1011111";
+						WHEN "0111" => seg_unid <= "1110000";
+						WHEN "1000" => seg_unid <= "1111111";
+						WHEN "1001" => seg_unid <= "1110011";
+						WHEN OTHERS => seg_unid <= "0000001";
+					END CASE;
+				end if;
 		END PROCESS;	
 
-		PROCESS (md, count_pisca, config, mode)
+		PROCESS (md, clk_pisca, config, mode)
 			BEGIN
-				CASE md IS 
-					WHEN "000" => min_dez <= "1000000";
-					WHEN "001" => min_dez <= "1111001";
-					WHEN "010" => min_dez <= "0100100";
-					WHEN "011" => min_dez <= "0110000";
-					WHEN "100" => min_dez <= "0011001";
-					WHEN "101" => min_dez <= "0010010";
-					WHEN OTHERS => min_dez <= "1000000";
-				END CASE;
+				if config = "10" and (clk_pisca'event and clk_pisca ='1') then
+					min_dez <= "0000000";
+				else
+					CASE md IS 
+						WHEN "000" => min_dez <= "1111110";
+						WHEN "001" => min_dez <= "0110000";
+						WHEN "010" => min_dez <= "1101101";
+						WHEN "011" => min_dez <= "1111001";
+						WHEN "100" => min_dez <= "0110011";
+						WHEN "101" => min_dez <= "1011011";
+						WHEN OTHERS => min_dez <= "0000001";
+					END CASE;
+				end if;
 		END PROCESS;
 
-		PROCESS (mu, count_pisca, config, mode)
+		PROCESS (mu, clk_pisca, config, mode)
 			BEGIN
-			CASE mu IS 
-				WHEN "0000" => min_unid <= "1000000";
-				WHEN "0001" => min_unid <= "1111001";
-				WHEN "0010" => min_unid <= "0100100";
-				WHEN "0011" => min_unid <= "0110000";
-				WHEN "0100" => min_unid <= "0011001";
-				WHEN "0101" => min_unid <= "0010010";
-				WHEN "0110" => min_unid <= "0000010";
-				WHEN "0111" => min_unid <= "1011000";
-				WHEN "1000" => min_unid <= "0000000";
-				WHEN "1001" => min_unid <= "0011000";
-				WHEN OTHERS => min_unid <= "1000000";		
-			END CASE;
+				if config = "10" and (clk_pisca'event and clk_pisca ='1') then
+					min_unid <= "0000000";
+				else
+					CASE mu IS 
+						WHEN "0000" => min_unid <= "1111110";
+						WHEN "0001" => min_unid <= "0110000";
+						WHEN "0010" => min_unid <= "1101101";
+						WHEN "0011" => min_unid <= "1111001";
+						WHEN "0100" => min_unid <= "0110011";
+						WHEN "0101" => min_unid <= "1011011";
+						WHEN "0110" => min_unid <= "1011111";
+						WHEN "0111" => min_unid <= "1110000";
+						WHEN "1000" => min_unid <= "1111111";
+						WHEN "1001" => min_unid <= "1110011";
+						WHEN OTHERS => min_unid <= "0000001";		
+					END CASE;
+				end if;
 		END PROCESS;	
 
-		PROCESS(hd, count_pisca, config, mode)
+		PROCESS(hd, clk_pisca, config)
 			BEGIN
-				CASE hd IS 
-					WHEN "00" => hora_dez <= "1000000";
-					WHEN "01" => hora_dez <= "1111001";
-					WHEN "10" => hora_dez <= "0100100";
-					WHEN OTHERS => hora_dez <= "1000000";
-				END CASE;
+				if config = "11" and (clk_pisca'event and clk_pisca ='1') then
+					hora_dez <= "0000000";
+				else
+					CASE hd IS 
+						WHEN "00" => hora_dez <= "1111110";
+						WHEN "01" => hora_dez <= "0110000";
+						WHEN "10" => hora_dez <= "1101101";
+						WHEN OTHERS => hora_dez <= "0000001";
+					END CASE;
+				end if;
 		END PROCESS;
 		
 		-- For the LS of the hour hand
-		PROCESS (hu, count_pisca, config, mode)
+		PROCESS (hu, clk_pisca, config)
 			BEGIN
-				case hu is 
-					when "0000" => hora_unid <= "1000000";
-					when "0001" => hora_unid <= "1111001";
-					when "0010" => hora_unid <= "0100100";
-					when "0011" => hora_unid <= "0110000";
-					when "0100" => hora_unid <= "0011001";
-					when "0101" => hora_unid <= "0010010";
-					when "0110" => hora_unid <= "0000010";
-					when "0111" => hora_unid <= "1011000";
-					when "1000" => hora_unid <= "0000000";
-					when "1001" => hora_unid <= "0011000";
-					when others => hora_unid <= "1000000";		
-				end case;
+				if config = "11" and (clk_pisca'event and clk_pisca ='1') then
+					hora_unid <= "0000000";
+				else
+					case hu is 
+						when "0000" => hora_unid <= "1111110";
+						when "0001" => hora_unid <= "0110000";
+						when "0010" => hora_unid <= "1101101";
+						when "0011" => hora_unid <= "1111001";
+						when "0100" => hora_unid <= "0110011";
+						when "0101" => hora_unid <= "1011011";
+						when "0110" => hora_unid <= "1011111";
+						when "0111" => hora_unid <= "1110000";
+						when "1000" => hora_unid <= "1111111";
+						when "1001" => hora_unid <= "1110011";
+						when others => hora_unid <= "0000001";		
+					end case;
+				end if;
 		END PROCESS;
 
 end Behavioral;
