@@ -12,7 +12,7 @@
 -- 6. A saída AM/PM deve ser conectada a LED0 na placa Basys3
 -- Página 2 de 3
 -- 7. Dependendo do valor de um chave Chv0, a 7 segmento deve mostrar (Segundos e Minutos
--- quando Chv0=’0’) ou (Horas e minutos quando Chv0=’1’).
+-- quando Chv0='0') ou (Horas e minutos quando Chv0='1').
 -- 8. A entrada Mode define o modo atual (Relógio quando 0, cronômetro quando 1)
 -- 9. A entrada Config (2 bits) define se o Relógio ou está no modo funcional ou de configuração
 -- (funcional quando 00, configuração Segundos quando 01, configuração Minutos quando 10,
@@ -25,7 +25,7 @@
 -- 12. A entrada Stop pausa o cronômetro (no modo cronômetro).
 -- 13. A entrada Reset reseta o valor do cronômetro para 0 (no modo cronômetro) e o valor do
 -- Relógio para 0 (no modo Relógio e configuração)
--- 14. O cronômetro inicializa com “0000” nos Segundos, Minutos e Horas.
+-- 14. O cronômetro inicializa com "0000" nos Segundos, Minutos e Horas.
 -- 15. Start/Inc, Stop, Reset seriam ativados com a borda subida.
 -- 16. A entrada Clk_100Mhz é ativada com a borda subida.
 -- 17. O Relógio deve continuar funcionando normal enquanto o cronômetro estiver sendo usado.
@@ -58,7 +58,7 @@ entity main is
 		hora_dez : OUT STD_LOGIC_VECTOR(6 downto 0);
 		am_pm : OUT STD_LOGIC;
 		
-		Clk_100Mhz : IN STD_LOGIC;
+		Clk_100Mhz : IN STD_LOGIC
 	);
 end main;
 
@@ -81,7 +81,7 @@ architecture Behavioral of main is
 
 	signal clk : std_logic :='0';
 	signal count : integer :=1;
-	signal clk_pisca : std_logic :='0'
+	signal clk_pisca : std_logic :='0';
 	signal count_pisca : integer :=1;
 
 	signal chrono_running : std_logic :='0';
@@ -100,7 +100,7 @@ architecture Behavioral of main is
             begin
                 if(Clk_100Mhz'event and Clk_100Mhz='1') then
                     count <= count+1;
-                    if(count = 100000000) then
+                    if(count = 50000000) then
                         clk <= not clk;
                         count <=1;
                     end if;
@@ -112,7 +112,7 @@ architecture Behavioral of main is
             begin
                 if(Clk_100Mhz'event and Clk_100Mhz='1') then
                     count_pisca <= count_pisca+1;
-                    if(count = 20000000) then
+                    if(count = 10000000) then
                         clk_pisca <= not clk_pisca;
                         count_pisca <=1;
                     end if;
@@ -149,7 +149,7 @@ architecture Behavioral of main is
 		end process;
 						
 		
-		clk_proc : process(clk, chrono_started, config)
+		clk_proc : process(clk, chrono_running, config)
 			begin
 				if (clk'event and clk ='1') then
 					-- relogio funcional somente fora de configuracao
@@ -181,7 +181,7 @@ architecture Behavioral of main is
 									relogio_min_dezena <= relogio_min_dezena + 1;
 								end if;
 							else
-								relogio_min_unidade = relogio_min_unidade + 1;
+								relogio_min_unidade <= relogio_min_unidade + 1;
 							end if;
 						else
 							relogio_sec_dezena <= relogio_sec_dezena + 1;
@@ -214,7 +214,7 @@ architecture Behavioral of main is
 										chrono_min_dezena <= chrono_min_dezena + 1;
 									end if;
 								else
-									chrono_min_unidade = chrono_min_unidade + 1;
+									chrono_min_unidade <= chrono_min_unidade + 1;
 								end if;
 							else
 								chrono_sec_dezena <= chrono_sec_dezena + 1;
@@ -322,7 +322,6 @@ architecture Behavioral of main is
 		-- For the LS of the hour hand
 		PROCESS (hu, count_pisca, config, mode)
 			BEGIN
-				if mode =tem
 				case hu is 
 					when "0000" => hora_unid <= "1000000";
 					when "0001" => hora_unid <= "1111001";
